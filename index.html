@@ -3,16 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>Gym Shop — Barcode Scanner</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 <style>
+  html, body { forced-color-adjust: none; color-scheme: light; }
   body { font-family: Arial, sans-serif; text-align: center; padding: 16px; background: #f4f6f8; margin:0; }
   h2 { color: #1F4E78; }
-  #reader {
+  #readerBox {
     width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto;
-    position: relative; background: #000; border-radius: 8px;
+    background: #000; border-radius: 8px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
   }
-  #reader video { width: 100% !important; border-radius: 8px; }
+  #video { width: 100%; display: block; forced-color-adjust: none; filter: none !important; }
   input, button {
     padding: 12px; font-size: 15px; width: 100%; max-width: 420px; margin-top: 8px;
     box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;
@@ -23,7 +26,9 @@
 </head>
 <body>
   <h2>📷 Scan Barcode</h2>
-  <div id="reader"></div>
+  <div id="readerBox">
+    <video id="video" autoplay playsinline muted></video>
+  </div>
   <div id="status">Starting camera...</div>
 
   <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
@@ -32,9 +37,17 @@
 
 <script>
   // Paste your Apps Script Web App URL here — the same one used for the Add Sale page.
-  var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbylwlHc747JcdJPoF5pgDZno2Uzhc51NX2PvAdHRB4tiN2ZLACmt5-wrJvmqzSk7yzV8Q/exec';
+  var WEB_APP_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
 
   function sendBarcode(code) {
+    // If opened as a popup from another page (Add Product, or the Sale page's Scan button),
+    // send the result straight back and close — no page navigation, no lost form data.
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'barcodeScanned', barcode: code }, '*');
+      window.close();
+      return;
+    }
+    // Fallback: opened as its own full tab with no opener — redirect into the Sale page.
     window.location.href = WEB_APP_URL + '?barcode=' + encodeURIComponent(code);
   }
 
@@ -43,28 +56,23 @@
     if (v) sendBarcode(v);
   }
 
-  var scanner = new Html5Qrcode('reader');
+  var codeReader = new ZXing.BrowserMultiFormatReader();
   var stopped = false;
 
-  function onDetected(decodedText) {
-    if (stopped) return;
-    stopped = true;
-    document.getElementById('status').innerText = 'Found: ' + decodedText;
-    scanner.stop().then(function () {
-      sendBarcode(decodedText);
-    }).catch(function () {
-      sendBarcode(decodedText); // proceed even if stop() cleanup fails
-    });
-  }
+  // facingMode: 'environment' requests the back camera directly — no device
+  // enumeration, no picker, no extra permission prompts for multiple cameras.
+  var constraints = { video: { facingMode: 'environment' } };
 
-  // { facingMode: "environment" } requests the back camera directly —
-  // no device list, no picker, no per-camera permission prompts.
-  scanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 150 } },
-    onDetected,
-    function () { /* fires continuously while no barcode is in frame — ignore */ }
-  ).then(function () {
+  codeReader.decodeFromConstraints(constraints, 'video', function (result, err) {
+    if (stopped) return;
+    if (result) {
+      stopped = true;
+      document.getElementById('status').innerText = 'Found: ' + result.getText();
+      codeReader.reset();
+      sendBarcode(result.getText());
+    }
+    // err fires continuously while no barcode is in frame (NotFoundException) — ignore it
+  }).then(function () {
     document.getElementById('status').innerText = 'Point the camera at a barcode.';
   }).catch(function (err) {
     document.getElementById('status').innerText =
