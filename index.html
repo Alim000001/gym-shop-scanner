@@ -38,6 +38,7 @@
     <div id="guide"></div>
   </div>
   <div id="status">Starting camera...</div>
+  <button type="button" id="torchBtn" style="display:none; max-width:420px;" onclick="toggleTorch()">🔦 Toggle Flash</button>
   <div id="tips">Hold about 10–15 cm away · line the barcode up horizontally in the box · good lighting, no glare</div>
 
   <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
@@ -65,8 +66,9 @@
     if (v) sendBarcode(v);
   }
 
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints());
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 100); // scan every ~100ms instead of the default ~500ms
   var stopped = false;
+  var currentTrack = null;
 
   // Limit to the barcode formats a shop actually uses — the decoder wastes time and
   // accuracy trying every possible format (QR, Data Matrix, Aztec, etc.) each frame
@@ -112,13 +114,36 @@
     // err fires continuously while no barcode is in frame (NotFoundException) — ignore it
   }).then(function () {
     document.getElementById('status').innerText = 'Point the camera at a barcode.';
+    setupTorchButton();
   }).catch(function (err) {
     document.getElementById('status').innerText =
       'Could not start the camera (' + err + '). Use manual entry below instead.';
   });
+
+  // Show a flash toggle only if this device's back camera actually supports it.
+  function setupTorchButton() {
+    var video = document.getElementById('video');
+    var stream = video.srcObject;
+    if (!stream) return;
+    var track = stream.getVideoTracks()[0];
+    if (!track) return;
+    var caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (caps.torch) {
+      currentTrack = track;
+      document.getElementById('torchBtn').style.display = 'inline-block';
+    }
+  }
+
+  var torchOn = false;
+  function toggleTorch() {
+    if (!currentTrack) return;
+    torchOn = !torchOn;
+    currentTrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
+  }
 </script>
 </body>
 </html>
+
 
 
 
