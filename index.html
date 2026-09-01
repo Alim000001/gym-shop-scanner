@@ -8,7 +8,11 @@
 <style>
   body { font-family: Arial, sans-serif; text-align: center; padding: 16px; background: #f4f6f8; margin:0; }
   h2 { color: #1F4E78; }
-  #reader { width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto; }
+  #reader {
+    width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto;
+    position: relative; background: #000; border-radius: 8px;
+  }
+  #reader video { width: 100% !important; border-radius: 8px; }
   input, button {
     padding: 12px; font-size: 15px; width: 100%; max-width: 420px; margin-top: 8px;
     box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;
@@ -20,7 +24,7 @@
 <body>
   <h2>📷 Scan Barcode</h2>
   <div id="reader"></div>
-  <div id="status">Point the camera at a barcode.</div>
+  <div id="status">Starting camera...</div>
 
   <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
   <input type="text" id="manualCode" placeholder="Type barcode...">
@@ -39,26 +43,33 @@
     if (v) sendBarcode(v);
   }
 
-  function onScanSuccess(decodedText) {
+  var scanner = new Html5Qrcode('reader');
+  var stopped = false;
+
+  function onDetected(decodedText) {
+    if (stopped) return;
+    stopped = true;
     document.getElementById('status').innerText = 'Found: ' + decodedText;
-    html5QrcodeScanner.clear().then(function () {
+    scanner.stop().then(function () {
       sendBarcode(decodedText);
     }).catch(function () {
-      sendBarcode(decodedText); // proceed even if cleanup fails
+      sendBarcode(decodedText); // proceed even if stop() cleanup fails
     });
   }
 
-  function onScanFailure() {
-    // fires continuously while no barcode is in frame — nothing to do
-  }
-
-  // Html5QrcodeScanner renders its own camera picker + video UI, which handles
-  // sizing/rendering far more reliably across phones than a manually built one.
-  var html5QrcodeScanner = new Html5QrcodeScanner(
-    'reader',
-    { fps: 10, qrbox: { width: 250, height: 150 }, rememberLastUsedCamera: true }
-  );
-  html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+  // { facingMode: "environment" } requests the back camera directly —
+  // no device list, no picker, no per-camera permission prompts.
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 150 } },
+    onDetected,
+    function () { /* fires continuously while no barcode is in frame — ignore */ }
+  ).then(function () {
+    document.getElementById('status').innerText = 'Point the camera at a barcode.';
+  }).catch(function (err) {
+    document.getElementById('status').innerText =
+      'Could not start the camera (' + err + '). Use manual entry below instead.';
+  });
 </script>
 </body>
 </html>
