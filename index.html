@@ -8,7 +8,7 @@
 <style>
   body { font-family: Arial, sans-serif; text-align: center; padding: 16px; background: #f4f6f8; margin:0; }
   h2 { color: #1F4E78; }
-  #reader { width: 100%; max-width: 420px; margin: 16px auto; border-radius: 8px; overflow: hidden; }
+  #reader { width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto; }
   input, button {
     padding: 12px; font-size: 15px; width: 100%; max-width: 420px; margin-top: 8px;
     box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;
@@ -21,37 +21,44 @@
   <h2>📷 Scan Barcode</h2>
   <div id="reader"></div>
   <div id="status">Point the camera at a barcode.</div>
- 
+
   <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
   <input type="text" id="manualCode" placeholder="Type barcode...">
   <button onclick="goManual()">Go</button>
- 
+
 <script>
   // Paste your Apps Script Web App URL here — the same one used for the Add Sale page.
-  var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbylwlHc747JcdJPoF5pgDZno2Uzhc51NX2PvAdHRB4tiN2ZLACmt5-wrJvmqzSk7yzV8Q/exec';
- 
+  var WEB_APP_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
   function sendBarcode(code) {
     window.location.href = WEB_APP_URL + '?barcode=' + encodeURIComponent(code);
   }
- 
+
   function goManual() {
     var v = document.getElementById('manualCode').value.trim();
     if (v) sendBarcode(v);
   }
- 
-  var scanner = new Html5Qrcode('reader');
-  scanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 250, height: 150 } },
-    function (decodedText) {
-      document.getElementById('status').innerText = 'Found: ' + decodedText;
-      scanner.stop().then(function () { sendBarcode(decodedText); });
-    },
-    function () { /* ignore per-frame "no barcode found" noise */ }
-  ).catch(function (err) {
-    document.getElementById('status').innerText =
-      'Could not start the camera (' + err + '). Use manual entry below instead.';
-  });
+
+  function onScanSuccess(decodedText) {
+    document.getElementById('status').innerText = 'Found: ' + decodedText;
+    html5QrcodeScanner.clear().then(function () {
+      sendBarcode(decodedText);
+    }).catch(function () {
+      sendBarcode(decodedText); // proceed even if cleanup fails
+    });
+  }
+
+  function onScanFailure() {
+    // fires continuously while no barcode is in frame — nothing to do
+  }
+
+  // Html5QrcodeScanner renders its own camera picker + video UI, which handles
+  // sizing/rendering far more reliably across phones than a manually built one.
+  var html5QrcodeScanner = new Html5QrcodeScanner(
+    'reader',
+    { fps: 10, qrbox: { width: 250, height: 150 }, rememberLastUsedCamera: true }
+  );
+  html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 </script>
 </body>
 </html>
