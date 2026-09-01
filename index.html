@@ -3,16 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>Gym Shop — Barcode Scanner</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
+  html, body { forced-color-adjust: none; color-scheme: light; }
   body { font-family: Arial, sans-serif; text-align: center; padding: 16px; background: #f4f6f8; margin:0; }
   h2 { color: #1F4E78; }
   #reader {
     width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto;
     position: relative; background: #000; border-radius: 8px;
+    forced-color-adjust: none;
   }
-  #reader video { width: 100% !important; border-radius: 8px; }
+  #reader video { width: 100% !important; border-radius: 8px; forced-color-adjust: none; filter: none !important; }
   input, button {
     padding: 12px; font-size: 15px; width: 100%; max-width: 420px; margin-top: 8px;
     box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;
@@ -73,5 +76,6 @@
 </script>
 </body>
 </html>
+
 
 
