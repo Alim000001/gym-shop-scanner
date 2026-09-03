@@ -79,7 +79,7 @@
   }
 
   // حل مشكلة التجمد 1: رفع الوقت بين كل فحص وفحص إلى 300ms بدلاً من 100ms لتخفيف الضغط المفاجئ على الكاميرا أثناء التشغيل
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 300);
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 500);
   var stopped = false;
   var currentTrack = null;
 
