@@ -66,14 +66,15 @@
     if (v) sendBarcode(v);
   }
 
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 400); // scan every ~100ms instead of the default ~500ms
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 350); // gentler pace — avoids overloading weaker phones
   var stopped = false;
   var currentTrack = null;
 
   // Limit to the barcode formats a shop actually uses — the decoder wastes time and
   // accuracy trying every possible format (QR, Data Matrix, Aztec, etc.) each frame
-  // otherwise. TRY_HARDER trades a bit of speed for meaningfully better accuracy,
-  // which is worth it for a one-shot manual scan.
+  // otherwise. TRY_HARDER is turned off — it's noticeably heavier on weaker phones
+  // and was causing the scanner to freeze; the tighter format list already does
+  // most of the work without it.
   function buildHints() {
     var hints = new Map();
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
@@ -85,20 +86,17 @@
       ZXing.BarcodeFormat.CODE_39,
       ZXing.BarcodeFormat.QR_CODE
     ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
     return hints;
   }
 
-  // facingMode: 'environment' requests the back camera directly — no device
-  // enumeration, no picker, no extra permission prompts for multiple cameras.
-  // Higher resolution + continuous autofocus give the decoder a sharper image to
-  // work with (unsupported "advanced" constraints are simply ignored by the browser,
-  // so this is safe even on devices/browsers that don't support focus control).
+  // Lower resolution — 1280x720 asks the camera/decoder to process noticeably more
+  // pixels per frame than most phones need for a barcode a few inches away, and was
+  // likely contributing to the freeze. 640x480 is still plenty sharp at scanning distance.
   var constraints = {
     video: {
       facingMode: 'environment',
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
+      width: { ideal: 640 },
+      height: { ideal: 480 },
       advanced: [{ focusMode: 'continuous' }]
     }
   };
