@@ -5,22 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light">
 <title>Gym Shop — Barcode Scanner</title>
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com"></script>
 <style>
   html, body { forced-color-adjust: none; color-scheme: light; margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
   body { font-family: Arial, sans-serif; }
   
-  /* جعل حاوية القارئ تغطي كامل الشاشة خلف العناصر */
   #readerBox {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: #000; z-index: 1; overflow: hidden;
   }
-  #video { width: 100%; height: 100%; object-fit: cover; filter: none !important; }
+  /* إزالة أي تأثيرات قد تسبب تجمد أثناء التحميل الأولي */
+  #video { width: 100%; height: 100%; object-fit: cover; }
   
-  /* طبقة الرسم التفاعلية لتحديد الباركود المكتشف */
   #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
 
-  /* عناصر التحكم العائمة فوق الفيديو */
   .ui-container {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; flex-direction: column; justify-content: space-between;
@@ -42,17 +40,16 @@
 </head>
 <body>
 
-  <!-- حاوية الشاشة الكاملة للكاميرا والكانفاس الذكي -->
   <div id="readerBox">
-    <video id="video" autoplay playsinline muted></video>
+    <!-- إضافة سمة muted و playsinline بشكل صارم لمنع متصفحات iOS/Android من حظر الفيديو وتجميده -->
+    <video id="video" autoplay loop muted playsinline></video>
     <canvas id="overlay"></canvas>
   </div>
 
-  <!-- الواجهة العائمة فوق الكاميرا -->
   <div class="ui-container">
     <div class="ui-top">
       <h2>📷 Fullscreen Scanner</h2>
-      <div id="status">Starting camera...</div>
+      <div id="status">Initializing...</div>
     </div>
     
     <div class="ui-bottom">
@@ -65,7 +62,7 @@
   </div>
 
 <script>
-  var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbylwlHc747JcdJPoF5pgDZno2Uzhc51NX2PvAdHRB4tiN2ZLACmt5-wrJvmqzSk7yzV8Q/exec';
+  var WEB_APP_URL = 'https://google.com';
 
   function sendBarcode(code) {
     if (window.opener && !window.opener.closed) {
@@ -81,7 +78,8 @@
     if (v) sendBarcode(v);
   }
 
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 100);
+  // حل مشكلة التجمد 1: رفع الوقت بين كل فحص وفحص إلى 300ms بدلاً من 100ms لتخفيف الضغط المفاجئ على الكاميرا أثناء التشغيل
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 300);
   var stopped = false;
   var currentTrack = null;
 
@@ -100,42 +98,85 @@
     return hints;
   }
 
-  // الإصلاح الأول: نطاق دقة مرن لمنع تجميد الشاشة نهائياً عند الفتح
+  // استخدام إعدادات قياسية جداً في البداية لضمان عمل الكاميرا بنسبة 100% دون أي تعارض
   var constraints = {
     video: {
-      facingMode: 'environment',
-      width: { min: 640, ideal: 1280, max: 1920 },
-      height: { min: 480, ideal: 720, max: 1080 }
+      facingMode: { ideal: 'environment' }
     }
   };
 
-  // الإصلاح الثاني: تفعيل الزووم والفوكس بأمان تام كخطوة ثانية بعد تفعيل الفيديو
-  function applyAdvancedSettings(videoElement) {
+  function startScanner() {
+    stopped = false;
+    document.getElementById('status').innerText = 'Starting camera stream...';
+    
+    // حل مشكلة التجمد 2: استخدام decodeFromConstraints القياسية للتأكد من ربط عنصر الفيديو بشكل سليم ومستقر
+    codeReader.decodeFromConstraints(constraints, 'video', function (result, err) {
+      if (stopped) return;
+
+      // عند استقرار بث الفيديو، نفعّل الميزات الإضافية والـ Torch بأمان
+      var videoElement = document.getElementById('video');
+      if (videoElement && videoElement.readyState >= 2 && !videoElement.dataset.ready) {
+        videoElement.dataset.ready = "true";
+        document.getElementById('status').innerText = 'Camera active. Point at barcode.';
+        setupAdvancedFeatures(videoElement);
+      }
+
+      if (result) {
+        stopped = true;
+        document.getElementById('status').innerText = 'Found: ' + result.getText();
+        
+        drawBarcodeFocus(result);
+        codeReader.reset(); // إيقاف فوري وتجميد
+        
+        setTimeout(function() {
+          sendBarcode(result.getText());
+        }, 400);
+      }
+    }).catch(function (err) {
+      console.error(err);
+      document.getElementById('status').innerText = 'Camera error: ' + err + '. Trying safe fallback...';
+      // محاولة تشغيل بديلة (Safe Fallback) إذا فشلت الأولى
+      fallbackScanner();
+    });
+  }
+
+  // دالة أمان احتياطية في حال رفض المتصفح الـ constraints المخصصة
+  function fallbackScanner() {
+    codeReader.decodeFromVideoDevice(undefined, 'video', function(result, err) {
+      if (stopped) return;
+      if (result) {
+        stopped = true;
+        drawBarcodeFocus(result);
+        codeReader.reset();
+        sendBarcode(result.getText());
+      }
+    });
+  }
+
+  function setupAdvancedFeatures(videoElement) {
     setTimeout(function() {
       if (!videoElement.srcObject) return;
       var tracks = videoElement.srcObject.getVideoTracks();
       if (tracks && tracks.length > 0) {
-        var track = tracks[0];
-        var caps = track.getCapabilities ? track.getCapabilities() : {};
-        var advancedConstraints = {};
-
-        if (caps.focusMode && caps.focusMode.includes('continuous')) {
-          advancedConstraints.focusMode = 'continuous';
+        currentTrack = tracks[0];
+        var caps = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+        
+        // تطبيق الفوكس والزووم بشكل تدريجي ناعم بعد عمل الكاميرا لتفادي التجمد
+        var adv = {};
+        if (caps.focusMode && caps.focusMode.includes('continuous')) adv.focusMode = 'continuous';
+        if (caps.zoom) adv.zoom = Math.min(1.5, caps.zoom.max); // زووم خفيف وآمن
+        
+        if (Object.keys(adv).length > 0) {
+          currentTrack.applyConstraints({ advanced: [adv] }).catch(function(e){});
         }
-        if (caps.zoom) {
-          // التقريب بمقدار 2X أو الحد الأقصى المتوفر بأمان لسهولة القراءة من بعيد
-          advancedConstraints.zoom = Math.min(2.0, caps.zoom.max);
-        }
-
-        if (Object.keys(advancedConstraints).length > 0) {
-          track.applyConstraints({ advanced: [advancedConstraints] })
-            .catch(function(e) { console.log("Advanced features skipped:", e); });
+        
+        if (caps.torch) {
+          document.getElementById('torchBtn').style.display = 'block';
         }
       }
-    }, 350); // ربع ثانية لمنع اصطدام التهيئات بالمتصفح
+    }, 500);
   }
 
-  // رسم وتثبيت مربع التركيز الأخضر بدقة الشاشة الكاملة المعروضة (object-fit: cover)
   function drawBarcodeFocus(result) {
     var video = document.getElementById('video');
     var canvas = document.getElementById('overlay');
@@ -149,7 +190,6 @@
     var points = result.getResultPoints();
     if (!points || points.length === 0) return;
 
-    // احتساب أبعاد العرض المطابقة للـ Fullscreen بدقة
     var scaleX = video.clientWidth / video.videoWidth;
     var scaleY = video.clientHeight / video.videoHeight;
 
@@ -171,59 +211,15 @@
     ctx.stroke();
   }
 
-  // بدء الفحص
-  codeReader.decodeFromConstraints(constraints, 'video', function (result, err) {
-    if (stopped) return;
-
-    // بمجرد تشغيل إطارات البث الفعلي، يتم تطبيق خصائص التقريب لمرة واحدة
-    var videoElement = document.getElementById('video');
-    if (videoElement && videoElement.readyState >= 2 && !videoElement.dataset.ready) {
-      videoElement.dataset.ready = "true";
-      applyAdvancedSettings(videoElement);
-      setupTorchButton();
-    }
-
-    if (result) {
-      stopped = true;
-      document.getElementById('status').innerText = 'Found: ' + result.getText();
-      
-      // 1. رسم وتثبيت الفوكس الأخضر بدقة فوق الكود المكتشف
-      drawBarcodeFocus(result);
-      
-      // 2. تجميد فوري لعدسة الكاميرا وإيقاف المحرك الخلفي
-      codeReader.reset();
-      
-      // 3. إرسال البيانات فوراً
-      setTimeout(function() {
-        sendBarcode(result.getText());
-      }, 400); // تأخير بلمحة بصر ليتمكن المستخدم من رؤية نجاح القراءة المربعة وثبات الشاشة
-    }
-  }).then(function () {
-    document.getElementById('status').innerText = 'Point at a barcode (Fullscreen Enabled).';
-  }).catch(function (err) {
-    document.getElementById('status').innerText =
-      'Could not start the camera (' + err + '). Use manual entry instead.';
-  });
-
-  function setupTorchButton() {
-    var video = document.getElementById('video');
-    var stream = video.srcObject;
-    if (!stream) return;
-    var track = stream.getVideoTracks()[0];
-    if (!track) return;
-    var caps = track.getCapabilities ? track.getCapabilities() : {};
-    if (caps.torch) {
-      currentTrack = track;
-      document.getElementById('torchBtn').style.display = 'block';
-    }
-  }
-
   var torchOn = false;
   function toggleTorch() {
     if (!currentTrack) return;
     torchOn = !torchOn;
     currentTrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
   }
+
+  // تشغيل آمن عند اكتمال تحميل عناصر الصفحة
+  window.addEventListener('load', startScanner);
 </script>
 </body>
 </html>
