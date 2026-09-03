@@ -66,7 +66,7 @@
     if (v) sendBarcode(v);
   }
 
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 300); // scan every ~100ms instead of the default ~500ms
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 400); // scan every ~100ms instead of the default ~500ms
   var stopped = false;
   var currentTrack = null;
 
