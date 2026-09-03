@@ -2,62 +2,77 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light">
 <title>Gym Shop — Barcode Scanner</title>
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <style>
-  html, body { forced-color-adjust: none; color-scheme: light; }
-  body { font-family: Arial, sans-serif; text-align: center; padding: 16px; background: #f4f6f8; margin:0; }
-  h2 { color: #1F4E78; }
+  html, body { forced-color-adjust: none; color-scheme: light; margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: Arial, sans-serif; }
+  
+  /* جعل حاوية القارئ تغطي كامل الشاشة خلف العناصر */
   #readerBox {
-    width: 100%; max-width: 420px; min-height: 320px; margin: 16px auto;
-    background: #000; border-radius: 8px; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-    position: relative;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #000; z-index: 1; overflow: hidden;
   }
-  #video { width: 100%; display: block; forced-color-adjust: none; filter: none !important; }
-  #guide {
-    position: absolute; left: 8%; right: 8%; top: 42%; height: 16%;
-    border: 3px solid #4CAF50; border-radius: 6px; pointer-events: none;
-    box-shadow: 0 0 0 999px rgba(0,0,0,0.35);
+  #video { width: 100%; height: 100%; object-fit: cover; filter: none !important; }
+  
+  /* طبقة الرسم التفاعلية لتحديد الباركود المكتشف */
+  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+
+  /* عناصر التحكم العائمة فوق الفيديو */
+  .ui-container {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; justify-content: space-between;
+    box-sizing: border-box; padding: 20px; z-index: 3; pointer-events: none;
   }
-  #tips { font-size: 12px; color: #777; margin-top: 6px; line-height: 1.5; }
+  .ui-top { pointer-events: auto; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 12px; margin-bottom: auto; }
+  .ui-bottom { pointer-events: auto; background: rgba(255,255,255,0.95); padding: 16px; border-radius: 16px 16px 0 0; margin-top: auto; box-shadow: 0 -4px 10px rgba(0,0,0,0.3); }
+
+  h2 { color: #fff; margin: 0 0 8px 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); text-align: center; }
+  #status { font-size: 14px; color: #00FF00; font-weight: bold; min-height: 18px; text-align: center; }
+  #tips { font-size: 11px; color: #fff; margin-bottom: 10px; line-height: 1.4; text-align: center; opacity: 0.8; }
+  
   input, button {
-    padding: 12px; font-size: 15px; width: 100%; max-width: 420px; margin-top: 8px;
-    box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;
+    padding: 12px; font-size: 15px; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid #ccc; margin-top: 8px;
   }
-  button { background: #1F4E78; color: white; border: none; font-weight: bold; }
-  #status { margin-top: 12px; font-size: 13px; color: #555; min-height: 18px; }
+  button { background: #1F4E78; color: white; border: none; font-weight: bold; cursor: pointer; }
+  #torchBtn { background: #e0a800; color: #333; margin-bottom: 8px; }
 </style>
 </head>
 <body>
-  <h2>📷 Scan Barcode</h2>
+
+  <!-- حاوية الشاشة الكاملة للكاميرا والكانفاس الذكي -->
   <div id="readerBox">
     <video id="video" autoplay playsinline muted></video>
-    <div id="guide"></div>
+    <canvas id="overlay"></canvas>
   </div>
-  <div id="status">Starting camera...</div>
-  <button type="button" id="torchBtn" style="display:none; max-width:420px;" onclick="toggleTorch()">🔦 Toggle Flash</button>
-  <div id="tips">Hold about 10–15 cm away · line the barcode up horizontally in the box · good lighting, no glare</div>
 
-  <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
-  <input type="text" id="manualCode" placeholder="Type barcode...">
-  <button onclick="goManual()">Go</button>
+  <!-- الواجهة العائمة فوق الكاميرا -->
+  <div class="ui-container">
+    <div class="ui-top">
+      <h2>📷 Fullscreen Scanner</h2>
+      <div id="status">Starting camera...</div>
+    </div>
+    
+    <div class="ui-bottom">
+      <button type="button" id="torchBtn" style="display:none;" onclick="toggleTorch()">🔦 Toggle Flash</button>
+      <div id="tips">Hold 10–15 cm away · align horizontally · ensure good lighting</div>
+      
+      <input type="text" id="manualCode" placeholder="Type barcode instead...">
+      <button type="button" onclick="goManual()">Submit Manual Code</button>
+    </div>
+  </div>
 
 <script>
-  // Paste your Apps Script Web App URL here — the same one used for the Add Sale page.
   var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbylwlHc747JcdJPoF5pgDZno2Uzhc51NX2PvAdHRB4tiN2ZLACmt5-wrJvmqzSk7yzV8Q/exec';
 
   function sendBarcode(code) {
-    // If opened as a popup from another page (Add Product, or the Sale page's Scan button),
-    // send the result straight back and close — no page navigation, no lost form data.
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage({ type: 'barcodeScanned', barcode: code }, '*');
       window.close();
       return;
     }
-    // Fallback: opened as its own full tab with no opener — redirect into the Sale page.
     window.location.href = WEB_APP_URL + '?barcode=' + encodeURIComponent(code);
   }
 
@@ -66,14 +81,10 @@
     if (v) sendBarcode(v);
   }
 
-  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 100); // scan every ~100ms instead of the default ~500ms
+  var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 100);
   var stopped = false;
   var currentTrack = null;
 
-  // Limit to the barcode formats a shop actually uses — the decoder wastes time and
-  // accuracy trying every possible format (QR, Data Matrix, Aztec, etc.) each frame
-  // otherwise. TRY_HARDER trades a bit of speed for meaningfully better accuracy,
-  // which is worth it for a one-shot manual scan.
   function buildHints() {
     var hints = new Map();
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
@@ -89,38 +100,111 @@
     return hints;
   }
 
-  // facingMode: 'environment' requests the back camera directly — no device
-  // enumeration, no picker, no extra permission prompts for multiple cameras.
-  // Higher resolution + continuous autofocus give the decoder a sharper image to
-  // work with (unsupported "advanced" constraints are simply ignored by the browser,
-  // so this is safe even on devices/browsers that don't support focus control).
+  // الإصلاح الأول: نطاق دقة مرن لمنع تجميد الشاشة نهائياً عند الفتح
   var constraints = {
     video: {
       facingMode: 'environment',
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      advanced: [{ focusMode: 'continuous' }, { zoom: 2.0 }]
+      width: { min: 640, ideal: 1280, max: 1920 },
+      height: { min: 480, ideal: 720, max: 1080 }
     }
   };
 
+  // الإصلاح الثاني: تفعيل الزووم والفوكس بأمان تام كخطوة ثانية بعد تفعيل الفيديو
+  function applyAdvancedSettings(videoElement) {
+    setTimeout(function() {
+      if (!videoElement.srcObject) return;
+      var tracks = videoElement.srcObject.getVideoTracks();
+      if (tracks && tracks.length > 0) {
+        var track = tracks[0];
+        var caps = track.getCapabilities ? track.getCapabilities() : {};
+        var advancedConstraints = {};
+
+        if (caps.focusMode && caps.focusMode.includes('continuous')) {
+          advancedConstraints.focusMode = 'continuous';
+        }
+        if (caps.zoom) {
+          // التقريب بمقدار 2X أو الحد الأقصى المتوفر بأمان لسهولة القراءة من بعيد
+          advancedConstraints.zoom = Math.min(2.0, caps.zoom.max);
+        }
+
+        if (Object.keys(advancedConstraints).length > 0) {
+          track.applyConstraints({ advanced: [advancedConstraints] })
+            .catch(function(e) { console.log("Advanced features skipped:", e); });
+        }
+      }
+    }, 350); // ربع ثانية لمنع اصطدام التهيئات بالمتصفح
+  }
+
+  // رسم وتثبيت مربع التركيز الأخضر بدقة الشاشة الكاملة المعروضة (object-fit: cover)
+  function drawBarcodeFocus(result) {
+    var video = document.getElementById('video');
+    var canvas = document.getElementById('overlay');
+    if (!canvas || !video) return;
+
+    var ctx = canvas.getContext('2d');
+    canvas.width = video.clientWidth;
+    canvas.height = video.clientHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    var points = result.getResultPoints();
+    if (!points || points.length === 0) return;
+
+    // احتساب أبعاد العرض المطابقة للـ Fullscreen بدقة
+    var scaleX = video.clientWidth / video.videoWidth;
+    var scaleY = video.clientHeight / video.videoHeight;
+
+    ctx.strokeStyle = '#00FF00'; 
+    ctx.lineWidth = 5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    if (points.length === 2) {
+      ctx.moveTo(points[0].getX() * scaleX, points[0].getY() * scaleY);
+      ctx.lineTo(points[1].getX() * scaleX, points[1].getY() * scaleY);
+    } else {
+      ctx.moveTo(points[0].getX() * scaleX, points[0].getY() * scaleY);
+      for (var i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].getX() * scaleX, points[i].getY() * scaleY);
+      }
+      ctx.closePath();
+    }
+    ctx.stroke();
+  }
+
+  // بدء الفحص
   codeReader.decodeFromConstraints(constraints, 'video', function (result, err) {
     if (stopped) return;
+
+    // بمجرد تشغيل إطارات البث الفعلي، يتم تطبيق خصائص التقريب لمرة واحدة
+    var videoElement = document.getElementById('video');
+    if (videoElement && videoElement.readyState >= 2 && !videoElement.dataset.ready) {
+      videoElement.dataset.ready = "true";
+      applyAdvancedSettings(videoElement);
+      setupTorchButton();
+    }
+
     if (result) {
       stopped = true;
       document.getElementById('status').innerText = 'Found: ' + result.getText();
+      
+      // 1. رسم وتثبيت الفوكس الأخضر بدقة فوق الكود المكتشف
+      drawBarcodeFocus(result);
+      
+      // 2. تجميد فوري لعدسة الكاميرا وإيقاف المحرك الخلفي
       codeReader.reset();
-      sendBarcode(result.getText());
+      
+      // 3. إرسال البيانات فوراً
+      setTimeout(function() {
+        sendBarcode(result.getText());
+      }, 400); // تأخير بلمحة بصر ليتمكن المستخدم من رؤية نجاح القراءة المربعة وثبات الشاشة
     }
-    // err fires continuously while no barcode is in frame (NotFoundException) — ignore it
   }).then(function () {
-    document.getElementById('status').innerText = 'Point the camera at a barcode.';
-    setupTorchButton();
+    document.getElementById('status').innerText = 'Point at a barcode (Fullscreen Enabled).';
   }).catch(function (err) {
     document.getElementById('status').innerText =
-      'Could not start the camera (' + err + '). Use manual entry below instead.';
+      'Could not start the camera (' + err + '). Use manual entry instead.';
   });
 
-  // Show a flash toggle only if this device's back camera actually supports it.
   function setupTorchButton() {
     var video = document.getElementById('video');
     var stream = video.srcObject;
@@ -130,7 +214,7 @@
     var caps = track.getCapabilities ? track.getCapabilities() : {};
     if (caps.torch) {
       currentTrack = track;
-      document.getElementById('torchBtn').style.display = 'inline-block';
+      document.getElementById('torchBtn').style.display = 'block';
     }
   }
 
@@ -143,7 +227,3 @@
 </script>
 </body>
 </html>
-
-
-
-
