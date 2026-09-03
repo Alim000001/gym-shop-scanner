@@ -40,15 +40,15 @@
   <div id="status">Starting camera...</div>
   <button type="button" id="torchBtn" style="display:none; max-width:420px;" onclick="toggleTorch()">🔦 Toggle Flash</button>
   <div id="tips">Hold about 10–15 cm away · line the barcode up horizontally in the box · good lighting, no glare</div>
-
+ 
   <p style="margin-top:24px; color:#555; font-size:13px;">Camera not working? Type the code instead:</p>
   <input type="text" id="manualCode" placeholder="Type barcode...">
   <button onclick="goManual()">Go</button>
-
+ 
 <script>
   // Paste your Apps Script Web App URL here — the same one used for the Add Sale page.
   var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbylwlHc747JcdJPoF5pgDZno2Uzhc51NX2PvAdHRB4tiN2ZLACmt5-wrJvmqzSk7yzV8Q/exec';
-
+ 
   function sendBarcode(code) {
     // If opened as a popup from another page (Add Product, or the Sale page's Scan button),
     // send the result straight back and close — no page navigation, no lost form data.
@@ -59,17 +59,19 @@
     }
     // Fallback: opened as its own full tab with no opener — redirect into the Sale page.
     window.location.href = WEB_APP_URL + '?barcode=' + encodeURIComponent(code);
-  }
 
+
+  }
+ 
   function goManual() {
     var v = document.getElementById('manualCode').value.trim();
     if (v) sendBarcode(v);
   }
-
+ 
   var codeReader = new ZXing.BrowserMultiFormatReader(buildHints(), 350); // gentler pace — avoids overloading weaker phones
   var stopped = false;
   var currentTrack = null;
-
+ 
   // Limit to the barcode formats a shop actually uses — the decoder wastes time and
   // accuracy trying every possible format (QR, Data Matrix, Aztec, etc.) each frame
   // otherwise. TRY_HARDER is turned off — it's noticeably heavier on weaker phones
@@ -88,7 +90,7 @@
     ]);
     return hints;
   }
-
+ 
   // Lower resolution — 1280x720 asks the camera/decoder to process noticeably more
   // pixels per frame than most phones need for a barcode a few inches away, and was
   // likely contributing to the freeze. 640x480 is still plenty sharp at scanning distance.
@@ -100,7 +102,7 @@
       advanced: [{ focusMode: 'continuous' }]
     }
   };
-
+ 
   codeReader.decodeFromConstraints(constraints, 'video', function (result, err) {
     if (stopped) return;
     if (result) {
@@ -117,7 +119,7 @@
     document.getElementById('status').innerText =
       'Could not start the camera (' + err + '). Use manual entry below instead.';
   });
-
+ 
   // Show a flash toggle only if this device's back camera actually supports it.
   function setupTorchButton() {
     var video = document.getElementById('video');
@@ -131,7 +133,7 @@
       document.getElementById('torchBtn').style.display = 'inline-block';
     }
   }
-
+ 
   var torchOn = false;
   function toggleTorch() {
     if (!currentTrack) return;
